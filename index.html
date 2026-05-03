@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>桌子计时系统</title>
+    <!-- Firebase SDK Compat 版本 -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #f5f7fb;
+            font-family: 'Segoe UI', 'Poppins', 'Inter', system-ui, -apple-system, 'Roboto', sans-serif;
+            color: #1e293b;
+            padding: 1rem;
+            min-height: 100vh;
+        }
+
+        /* 配置面板 */
+        .config-container {
+            max-width: 560px;
+            margin: 2rem auto;
+            background: #ffffff;
+            border-radius: 2rem;
+            padding: 2rem 1.8rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e2e8f0;
+        }
+
+        .config-container h1 {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #4f46e5, #3b82f6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 2rem;
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 0.4rem;
+            font-weight: 500;
+            color: #334155;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 0.9rem 1rem;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 1.2rem;
+            color: #0f172a;
+            font-size: 1rem;
+            outline: none;
+            transition: 0.2s;
+        }
+
+        .input-group input:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+        }
+
+        .btn-primary {
+            width: 100%;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 0.9rem;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 2rem;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-top: 0.5rem;
+        }
+
+        .btn-primary:hover {
+            background: #4338ca;
+            transform: scale(0.98);
+        }
+
+        .error-hint {
+            background: #fee2e2;
+            margin-top: 1rem;
+            padding: 0.8rem;
+            border-radius: 1rem;
+            font-size: 0.85rem;
+            color: #b91c1c;
+            text-align: center;
+        }
+
+        /* 主界面 */
+        .main-container {
+            display: none;
+        }
+
+        /* 顶部栏: 标题左，时间中，按钮右 */
+        .main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1.8rem;
+            background: #ffffffcc;
+            backdrop-filter: blur(8px);
+            padding: 0.6rem 1.5rem;
+            border-radius: 2rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+        }
+        .header-left {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #475569;
+            letter-spacing: 1px;
+        }
+        .live-clock {
+            font-size: 0.9rem;
+            font-weight: 500;
+            font-family: 'JetBrains Mono', monospace;
+            background: #f1f5f9;
+            padding: 0.2rem 0.8rem;
+            border-radius: 2rem;
+            color: #334155;
+            text-align: center;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn-icon {
+            background: #eef2ff;
+            border: none;
+            padding: 0.5rem 1.2rem;
+            border-radius: 2rem;
+            color: #1e293b;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .btn-icon:hover {
+            background: #e0e7ff;
+        }
+
+        /* 桌子网格 */
+        .tables-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        /* 卡片 */
+        .table-card {
+            background: #ffffff;
+            border-radius: 1.5rem;
+            padding: 1.2rem;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            border-left: 6px solid #cbd5e1;
+            border: 1px solid #e2e8f0;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 0.5rem;
+        }
+
+        .table-name {
+            font-size: 1.5rem;
+            font-weight: bold;
+            background: none;
+            border: none;
+            color: #f59e0b;
+            padding: 0.2rem 0.6rem;
+            border-radius: 1rem;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+
+        .table-name:hover {
+            background: #fef9e3;
+        }
+
+        .delete-table {
+            background: #fee2e2;
+            border: none;
+            color: #b91c1c;
+            font-size: 1.2rem;
+            width: 36px;
+            height: 36px;
+            border-radius: 2rem;
+            cursor: pointer;
+        }
+
+        /* 模式切换按钮组 */
+        .mode-switch {
+            display: flex;
+            gap: 0.8rem;
+            margin-bottom: 1rem;
+            justify-content: center;
+        }
+        .mode-btn {
+            background: #f1f5f9;
+            border: none;
+            padding: 0.4rem 1rem;
+            border-radius: 2rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: #475569;
+        }
+        .mode-btn.active {
+            background: #4f46e5;
+            color: white;
+        }
+
+        /* 计时面板通用 */
+        .timer-panel {
+            transition: 0.2s;
+        }
+        .hidden-panel {
+            display: none;
+        }
+
+        .timer-section {
+            background: #f8fafc;
+            border-radius: 1.2rem;
+            padding: 0.9rem;
+            margin-top: 0.5rem;
+        }
+        /* 倒计时结束时的红色背景 (仅倒计时面板) */
+        .timer-section.countdown-finished {
+            background: #fee2e2;
+            transition: background 0.2s;
+        }
+
+        .timer-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #64748b;
+            margin-bottom: 0.2rem;
+        }
+
+        .timer-digits {
+            font-size: 2rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            margin: 0.2rem 0;
+            text-align: center;
+            letter-spacing: 2px;
+            color: #0f172a;
+            transition: color 0.1s;
+        }
+        /* 剩余 ≤ 60 秒红色警告 */
+        .timer-digits.warning-red {
+            color: #dc2626;
+            animation: blinkWarning 1s ease-in-out infinite;
+        }
+        @keyframes blinkWarning {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .status-badge {
+            font-size: 0.7rem;
+            text-align: center;
+            color: #475569;
+            margin-bottom: 0.6rem;
+        }
+
+        .timer-buttons {
+            display: flex;
+            gap: 0.6rem;
+            margin: 0.8rem 0 0.4rem;
+        }
+        .timer-buttons button {
+            flex: 1;
+            background: #eef2ff;
+            border: none;
+            padding: 0.5rem;
+            border-radius: 2rem;
+            color: #1e293b;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .adjust-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin: 0.6rem 0;
+            align-items: center;
+        }
+        .adjust-btn {
+            background: #e2e8f0;
+            border: none;
+            padding: 0.3rem 0.7rem;
+            border-radius: 1.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: #1e293b;
+        }
+        .duration-input {
+            width: 70px;
+            background: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 1rem;
+            padding: 0.3rem;
+            text-align: center;
+            color: #0f172a;
+        }
+        .label-text {
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-right: 0.2rem;
+        }
+        .sec-apply {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 0.25rem 0.8rem;
+            border-radius: 1.5rem;
+            cursor: pointer;
+        }
+
+        hr {
+            border-color: #e2e8f0;
+            margin: 0.5rem 0;
+        }
+
+        @media (max-width: 560px) {
+            .tables-grid { grid-template-columns: 1fr; }
+            .timer-digits { font-size: 1.6rem; }
+        }
+    </style>
+</head>
+<body>
+<div id="configPanel" class="config-container">
+    <h1>🎲 桌子计时系统</h1>
+    <div class="input-group">
+        <label>🔥 Firebase API Key（BGivJoFiLiRolUNImyZgPq-QYJMwFpDvgSnUVkZHj8TN5f0Gu7th8_AnBje2v86RNjcI7Y42sUXHdUowJICd10M）</label>
+        <input type="text" id="apiKeyInput" placeholder="AIzaSy... (来自 Firebase 项目设置)">
+    </div>
+    <div class="input-group">
+        <label>📡 Database URL（https://gzic-a8034-default-rtdb.firebaseio.com）</label>
+        <input type="text" id="dbUrlInput" placeholder="https://项目名.firebaseio.com 或 https://项目名-区域.firebasedatabase.app">
+        <small style="color:#475569;">✔️ 必须以 https:// 开头，不含尾部斜杠</small>
+    </div>
+    <div class="input-group">
+        <label>🚪 房间号 (Room ID)</label>
+        <input type="text" id="roomIdInput" placeholder="例如: room_001">
+    </div>
+    <button id="enterRoomBtn" class="btn-primary">➡️ 进入房间</button>
+    <div id="configError" class="error-hint" style="display: none;"></div>
+</div>
+
+<div id="mainPanel" class="main-container">
+    <div class="main-header">
+        <div class="header-left">桌子计时系统</div>
+        <div class="live-clock" id="liveClock">--/--/---- --:--:--</div>
+        <div class="action-buttons">
+            <button id="addTableBtn" class="btn-icon">➕ 添加桌子</button>
+            <button id="settingsBackBtn" class="btn-icon">⚙️ 设置</button>
+        </div>
+    </div>
+    <div id="tablesGrid" class="tables-grid"></div>
+</div>
+
+<script>
+    // ---------- 全局变量 ----------
+    let currentFirebaseApp = null;
+    let db = null;
+    let currentRoomId = null;
+    let tablesRef = null;
+    let tablesData = {};
+    let serverOffsetMs = 0;
+    let reRenderTimer = null;
+    let alertedCompletionSet = new Set();
+    let notificationGranted = false;
+    let audioCtx = null;
+    let tableDisplayMode = {};      // 每个桌子显示模式 'up' or 'down'
+
+    const configPanel = document.getElementById('configPanel');
+    const mainPanel = document.getElementById('mainPanel');
+    const apiKeyInput = document.getElementById('apiKeyInput');
+    const dbUrlInput = document.getElementById('dbUrlInput');
+    const roomIdInput = document.getElementById('roomIdInput');
+    const enterBtn = document.getElementById('enterRoomBtn');
+    const addTableBtn = document.getElementById('addTableBtn');
+    const settingsBackBtn = document.getElementById('settingsBackBtn');
+    const tablesGrid = document.getElementById('tablesGrid');
+    const liveClockSpan = document.getElementById('liveClock');
+    const configErrorDiv = document.getElementById('configError');
+
+    // --- 辅助函数 ---
+    function showConfigError(msg) {
+        configErrorDiv.style.display = 'block';
+        configErrorDiv.innerText = msg;
+        setTimeout(() => {
+            if (configErrorDiv.style.display === 'block') configErrorDiv.style.display = 'none';
+        }, 8000);
+    }
+    function getCurrentServerTime() { return Date.now() + serverOffsetMs; }
+    async function initServerOffset(database) {
+        return new Promise((resolve) => {
+            const offsetRef = database.ref('.info/serverTimeOffset');
+            offsetRef.once('value', (snap) => {
+                serverOffsetMs = snap.val() || 0;
+                resolve();
+            }).catch(() => { serverOffsetMs = 0; resolve(); });
+        });
+    }
+    function showError(msg) { alert("❌ " + msg); }
+    function requestNotificationPerm() {
+        if ("Notification" in window && Notification.permission === "granted") notificationGranted = true;
+        else if ("Notification" in window && Notification.permission !== "denied") {
+            Notification.requestPermission().then(perm => { if (perm === "granted") notificationGranted = true; });
+        }
+    }
+
+    // 增强提示音：5声 800Hz，每声200ms，间隔150ms，音量0.8
+    function playBeep() {
+        try {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const resumeIt = () => {
+                if (audioCtx.state === 'suspended') audioCtx.resume().then(() => doBeepSequence()).catch(e=>console.log);
+                else doBeepSequence();
+            };
+            resumeIt();
+        } catch(e) { console.warn(e); }
+    }
+    function doBeepSequence() {
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const totalBeeps = 5;
+        const beepDuration = 0.2;
+        const gap = 0.15;
+        for (let i = 0; i < totalBeeps; i++) {
+            const startTime = now + i * (beepDuration + gap);
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.frequency.value = 800;
+            gain.gain.setValueAtTime(0.8, startTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, startTime + beepDuration);
+            osc.start(startTime);
+            osc.stop(startTime + beepDuration);
+        }
+    }
+    function unlockAudio() {
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        else if (!audioCtx) { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); }
+    }
+
+    // --- Firebase 初始化与连接 ---
+    async function cleanupFirebase() {
+        if (currentFirebaseApp) {
+            try { await currentFirebaseApp.delete(); } catch(e) {}
+            currentFirebaseApp = null;
+        }
+        db = null; tablesRef = null; tablesData = {}; alertedCompletionSet.clear();
+    }
+    async function testDatabasePermission(database, testPath = '_test_conn') {
+        const testRef = database.ref(testPath);
+        const testValue = { timestamp: Date.now(), random: Math.random() };
+        try {
+            await testRef.set(testValue);
+            const snap = await testRef.once('value');
+            await testRef.remove();
+            return snap.val() !== null;
+        } catch (err) { return false; }
+    }
+    async function initFirebaseAndRoom(apiKey, rawDatabaseURL, roomId) {
+        const cleanApiKey = apiKey.trim();
+        let cleanDbUrl = rawDatabaseURL.trim();
+        if (!cleanDbUrl.startsWith('https://')) throw new Error("Database URL 必须以 https:// 开头");
+        while (cleanDbUrl.endsWith('/')) cleanDbUrl = cleanDbUrl.slice(0, -1);
+        const cleanRoomId = roomId.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+        if (!cleanApiKey || !cleanDbUrl || !cleanRoomId) throw new Error("所有字段不能为空");
+        await cleanupFirebase();
+        const appName = `timing_${cleanRoomId}_${Date.now()}`;
+        const firebaseConfig = { apiKey: cleanApiKey, databaseURL: cleanDbUrl };
+        let app;
+        try { app = firebase.initializeApp(firebaseConfig, appName); } catch (err) { throw new Error("Firebase 初始化失败: " + err.message); }
+        currentFirebaseApp = app;
+        const database = firebase.database(app);
+        const hasAccess = await testDatabasePermission(database);
+        if (!hasAccess) throw new Error("数据库权限不足！请检查规则。");
+        await initServerOffset(database);
+        db = database;
+        currentRoomId = cleanRoomId;
+        tablesRef = db.ref(`rooms/${cleanRoomId}/tables`);
+        attachTableListeners();
+        return true;
+    }
+
+    // --- 核心数据监听：仅当结构变化时全量渲染，字段变化时局部更新 ---
+    function attachTableListeners() {
+        if (!tablesRef) return;
+        tablesRef.off();
+        tablesRef.on('child_added', (snap) => {
+            tablesData[snap.key] = snap.val();
+            if (!tableDisplayMode[snap.key]) tableDisplayMode[snap.key] = 'up';
+            fullRenderTables();
+        });
+        tablesRef.on('child_removed', (snap) => {
+            delete tablesData[snap.key];
+            delete tableDisplayMode[snap.key];
+            fullRenderTables();
+        });
+        tablesRef.on('child_changed', (snap) => {
+            const id = snap.key;
+            tablesData[id] = snap.val();
+            updateSingleCard(id, tablesData[id]);
+            if (tablesData[id]?.downTimer && (tablesData[id].downTimer.status === 'idle' || tablesData[id].downTimer.status === 'running')) {
+                alertedCompletionSet.delete(id);
+            }
+        });
+    }
+
+    // 全量渲染: 构建整个网格 (用于初始化、增删桌子)
+    function fullRenderTables() {
+        if (!tablesGrid) return;
+        let html = '';
+        for (const [id, table] of Object.entries(tablesData)) {
+            const upSec = getUpElapsedSeconds(table);
+            const downRem = getDownRemainingSeconds(table);
+            const upStatusText = { idle:'未开始', running:'正在计时...', paused:'已暂停' }[table.upTimer?.status] || '';
+            const downStatusText = { idle:'未开始', running:'倒计时中...', paused:'已暂停' }[table.downTimer?.status] || '';
+            const borderColor = getCardBorderStyle(table);
+            const currentMode = tableDisplayMode[id] || 'up';
+            const isUpActive = currentMode === 'up';
+            const downDuration = table.downTimer?.duration || 0;
+            const downMinutes = Math.floor(downDuration / 60);
+            const downSeconds = downDuration % 60;
+            const upBtnText = (table.upTimer?.status === 'running') ? '暂停' : '开始';
+            const downBtnText = (table.downTimer?.status === 'running') ? '暂停' : '开始';
+            const isFinished = (table.downTimer?.status === 'paused' && getDownRemainingSeconds(table) <= 0) || (table.downTimer?.status !== 'idle' && getDownRemainingSeconds(table) <= 0);
+            const finishedClass = isFinished ? 'countdown-finished' : '';
+            html += `
+                <div class="table-card" data-id="${id}" style="border-left-color: ${borderColor};">
+                    <div class="card-header">
+                        <button class="table-name" data-id="${id}" data-action="editName">🏷️ ${escapeHtml(table.name)}</button>
+                        <button class="delete-table" data-id="${id}" data-action="deleteTable">🗑️</button>
+                    </div>
+                    <div class="mode-switch">
+                        <button class="mode-btn ${isUpActive ? 'active' : ''}" data-id="${id}" data-mode="up">⏱️ 正计时</button>
+                        <button class="mode-btn ${!isUpActive ? 'active' : ''}" data-id="${id}" data-mode="down">⏳ 倒计时</button>
+                    </div>
+                    <div id="upPanel_${id}" class="timer-panel ${isUpActive ? '' : 'hidden-panel'}">
+                        <div class="timer-section">
+                            <div class="timer-digits" id="upDigits_${id}">${formatTime(upSec)}</div>
+                            <div class="status-badge" id="upStatus_${id}">${upStatusText}</div>
+                            <div class="timer-buttons">
+                                <button data-id="${id}" data-timer="up" data-act="start" id="upStartBtn_${id}">▶ ${upBtnText}</button>
+                                <button data-id="${id}" data-timer="up" data-act="reset">🔄 重置</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="downPanel_${id}" class="timer-panel ${!isUpActive ? '' : 'hidden-panel'}">
+                        <div class="timer-section ${finishedClass}" id="downSection_${id}">
+                            <div class="timer-digits" id="downDigits_${id}">${formatTime(downRem)}</div>
+                            <div class="status-badge" id="downStatus_${id}">${downStatusText}</div>
+                            <div class="adjust-row">
+                                <span class="label-text">预设时长：</span>
+                                <input type="number" id="durMin_${id}" value="${downMinutes}" min="0" step="1" class="duration-input" style="width:70px"> 分
+                                <input type="number" id="durSec_${id}" value="${downSeconds}" min="0" max="59" step="1" class="duration-input" style="width:70px"> 秒
+                            </div>
+                            <div class="adjust-row">
+                                <button class="adjust-btn" data-id="${id}" data-delta="-3600">-1小时</button>
+                                <button class="adjust-btn" data-id="${id}" data-delta="-60">-1分</button>
+                                <button class="adjust-btn" data-id="${id}" data-delta="-10">-10秒</button>
+                                <button class="adjust-btn" data-id="${id}" data-delta="+10">+10秒</button>
+                                <button class="adjust-btn" data-id="${id}" data-delta="+60">+1分</button>
+                                <button class="adjust-btn" data-id="${id}" data-delta="+300">+5分</button>
+                                <button class="adjust-btn" data-id="${id}" data-delta="+600">+10分</button>
+                                <button class="adjust-btn" data-id="${id}" data-delta="+3600">+1小时</button>
+                            </div>
+                            <div class="adjust-row">
+                                <span class="label-text">秒数（负数减时）：</span>
+                                <input type="number" id="deltaSec_${id}" value="0" step="1" class="duration-input" style="width:90px">
+                                <button class="sec-apply" data-id="${id}" data-apply="delta">应用</button>
+                            </div>
+                            <div class="timer-buttons">
+                                <button data-id="${id}" data-timer="down" data-act="start" id="downStartBtn_${id}">▶ ${downBtnText}</button>
+                                <button data-id="${id}" data-timer="down" data-act="reset">🔄 重置</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        tablesGrid.innerHTML = html || '<div style="text-align:center;padding:3rem;">✨ 暂无桌子，点击「添加桌子」开始</div>';
+        // 绑定分秒输入框变更事件
+        for (const id of Object.keys(tablesData)) {
+            bindDurationInputs(id);
+        }
+    }
+
+    // 局部更新单个卡片（字段变化时调用，避免全量重绘）
+    function updateSingleCard(id, table) {
+        // 正计时
+        const upDigits = document.getElementById(`upDigits_${id}`);
+        const upStatus = document.getElementById(`upStatus_${id}`);
+        if (upDigits) upDigits.innerText = formatTime(getUpElapsedSeconds(table));
+        if (upStatus) upStatus.innerText = { idle:'未开始', running:'正在计时...', paused:'已暂停' }[table.upTimer?.status] || '';
+        const upStartBtn = document.getElementById(`upStartBtn_${id}`);
+        if (upStartBtn) upStartBtn.innerText = (table.upTimer?.status === 'running') ? '暂停' : '开始';
+
+        // 倒计时
+        const downDigits = document.getElementById(`downDigits_${id}`);
+        const downStatus = document.getElementById(`downStatus_${id}`);
+        const remaining = getDownRemainingSeconds(table);
+        if (downDigits) {
+            downDigits.innerText = formatTime(remaining);
+            if (remaining <= 60 && remaining > 0) downDigits.classList.add('warning-red');
+            else downDigits.classList.remove('warning-red');
+        }
+        if (downStatus) downStatus.innerText = { idle:'未开始', running:'倒计时中...', paused:'已暂停' }[table.downTimer?.status] || '';
+        const downStartBtn = document.getElementById(`downStartBtn_${id}`);
+        if (downStartBtn) downStartBtn.innerText = (table.downTimer?.status === 'running') ? '暂停' : '开始';
+        
+        // 结束背景
+        const downSection = document.getElementById(`downSection_${id}`);
+        const isFinished = (table.downTimer?.status === 'paused' && remaining <= 0) || (table.downTimer?.status !== 'idle' && remaining <= 0);
+        if (downSection) {
+            if (isFinished) downSection.classList.add('countdown-finished');
+            else downSection.classList.remove('countdown-finished');
+        }
+        // 边框颜色
+        const card = document.querySelector(`.table-card[data-id="${id}"]`);
+        if (card) card.style.borderLeftColor = getCardBorderStyle(table);
+        // 更新分秒输入框的值 (保证与 duration 同步)
+        const minInp = document.getElementById(`durMin_${id}`);
+        const secInp = document.getElementById(`durSec_${id}`);
+        if (minInp && secInp && table.downTimer) {
+            const dur = table.downTimer.duration || 0;
+            minInp.value = Math.floor(dur / 60);
+            secInp.value = dur % 60;
+        }
+    }
+
+    function bindDurationInputs(id) {
+        const minInp = document.getElementById(`durMin_${id}`);
+        const secInp = document.getElementById(`durSec_${id}`);
+        if (minInp && secInp) {
+            const update = () => {
+                let mins = parseInt(minInp.value) || 0;
+                let secs = parseInt(secInp.value) || 0;
+                let total = mins * 60 + secs;
+                if (total < 1) total = 1;
+                setDuration(id, total);
+            };
+            minInp.onchange = update;
+            secInp.onchange = update;
+        }
+    }
+
+    // --- 数据库写操作 ---
+    async function updateTableField(tableId, path, value) {
+        if (!db || !currentRoomId) return;
+        const ref = db.ref(`rooms/${currentRoomId}/tables/${tableId}/${path}`);
+        try { await ref.set(value); } catch(e) { showError("更新失败: "+e.message); }
+    }
+    async function addNewTable() {
+        if (!db || !currentRoomId) return;
+        const newRef = tablesRef.push();
+        const defaultData = {
+            name: `桌${Object.keys(tablesData).length+1}`,
+            upTimer: { status: "idle", startTime: null, pausedElapsed: null },
+            downTimer: { status: "idle", startTime: null, pausedElapsed: null, duration: 3600 }
+        };
+        await newRef.set(defaultData);
+    }
+    async function deleteTable(tableId) {
+        if (!confirm("⚠️ 确认删除这张桌子吗？")) return;
+        await tablesRef.child(tableId).remove();
+    }
+    async function editTableName(tableId, currentName) {
+        const newName = prompt("输入新桌子名称:", currentName);
+        if (newName && newName.trim()) await updateTableField(tableId, "name", newName.trim());
+    }
+    async function upTimerAction(tableId, action) {
+        const table = tablesData[tableId];
+        if (!table) return;
+        const up = table.upTimer;
+        const nowServer = getCurrentServerTime();
+        if (action === 'start') {
+            if (up.status === 'idle') {
+                await updateTableField(tableId, 'upTimer/startTime', nowServer);
+                await updateTableField(tableId, 'upTimer/pausedElapsed', null);
+                await updateTableField(tableId, 'upTimer/status', 'running');
+            } else if (up.status === 'paused') {
+                const elapsedSec = up.pausedElapsed || 0;
+                const newStart = nowServer - (elapsedSec * 1000);
+                await updateTableField(tableId, 'upTimer/startTime', newStart);
+                await updateTableField(tableId, 'upTimer/pausedElapsed', null);
+                await updateTableField(tableId, 'upTimer/status', 'running');
+            }
+        } else if (action === 'pause') {
+            if (up.status === 'running' && up.startTime) {
+                const elapsed = (nowServer - up.startTime) / 1000;
+                await updateTableField(tableId, 'upTimer/pausedElapsed', elapsed);
+                await updateTableField(tableId, 'upTimer/startTime', null);
+                await updateTableField(tableId, 'upTimer/status', 'paused');
+            }
+        } else if (action === 'reset') {
+            await updateTableField(tableId, 'upTimer/status', 'idle');
+            await updateTableField(tableId, 'upTimer/startTime', null);
+            await updateTableField(tableId, 'upTimer/pausedElapsed', null);
+        }
+    }
+    async function downTimerAction(tableId, action) {
+        const table = tablesData[tableId];
+        if (!table) return;
+        const down = table.downTimer;
+        const nowServer = getCurrentServerTime();
+        if (action === 'start') {
+            if (down.status === 'idle') {
+                await updateTableField(tableId, 'downTimer/startTime', nowServer);
+                await updateTableField(tableId, 'downTimer/pausedElapsed', null);
+                await updateTableField(tableId, 'downTimer/status', 'running');
+            } else if (down.status === 'paused') {
+                const elapsedSec = down.pausedElapsed || 0;
+                const newStart = nowServer - (elapsedSec * 1000);
+                await updateTableField(tableId, 'downTimer/startTime', newStart);
+                await updateTableField(tableId, 'downTimer/pausedElapsed', null);
+                await updateTableField(tableId, 'downTimer/status', 'running');
+            }
+        } else if (action === 'pause') {
+            if (down.status === 'running' && down.startTime) {
+                const elapsed = (nowServer - down.startTime) / 1000;
+                await updateTableField(tableId, 'downTimer/pausedElapsed', elapsed);
+                await updateTableField(tableId, 'downTimer/startTime', null);
+                await updateTableField(tableId, 'downTimer/status', 'paused');
+            }
+        } else if (action === 'reset') {
+            await updateTableField(tableId, 'downTimer/status', 'idle');
+            await updateTableField(tableId, 'downTimer/startTime', null);
+            await updateTableField(tableId, 'downTimer/pausedElapsed', null);
+        }
+    }
+
+    // 唯一修改倒计时总时长的地方：更新数据库中的 duration（单位：秒）
+    async function setDuration(tableId, seconds) {
+        if (seconds < 1) seconds = 1;
+        const table = tablesData[tableId];
+        if (!table) return;
+        const down = table.downTimer;
+        const nowServ = getCurrentServerTime();
+        let elapsed = 0;
+        if (down.status === 'running' && down.startTime) {
+            elapsed = (nowServ - down.startTime) / 1000;
+        } else if (down.status === 'paused' && down.pausedElapsed !== null) {
+            elapsed = down.pausedElapsed;
+        }
+        // 更新数据库，会触发 child_changed 事件，进而更新 UI
+        await updateTableField(tableId, 'downTimer/duration', seconds);
+        const remaining = seconds - elapsed;
+        if (remaining <= 0 && (down.status === 'running' || down.status === 'paused')) {
+            // 倒计时结束，将状态置为 paused 并记录已过时间等于 duration
+            await updateTableField(tableId, 'downTimer/status', 'paused');
+            await updateTableField(tableId, 'downTimer/startTime', null);
+            await updateTableField(tableId, 'downTimer/pausedElapsed', seconds);
+            triggerCompletionAlert(tableId);
+        }
+    }
+
+    function triggerCompletionAlert(tableId) {
+        if (alertedCompletionSet.has(tableId)) return;
+        alertedCompletionSet.add(tableId);
+        playBeep();
+        const name = tablesData[tableId]?.name || "桌子";
+        if (notificationGranted) new Notification(`⏰ 倒计时结束`, { body: `“${name}” 倒计时已归零！` });
+    }
+
+    function checkCountdownCompletion() {
+        for (const [id, table] of Object.entries(tablesData)) {
+            if (!table?.downTimer) continue;
+            const down = table.downTimer;
+            if (down.status === 'idle') continue;
+            const remaining = getDownRemainingSeconds(table);
+            if (remaining <= 0 && (down.status === 'running' || down.status === 'paused')) {
+                if (down.status !== 'paused') {
+                    const durationVal = down.duration || 0;
+                    updateTableField(id, 'downTimer/status', 'paused');
+                    updateTableField(id, 'downTimer/startTime', null);
+                    updateTableField(id, 'downTimer/pausedElapsed', durationVal);
+                }
+                if (!alertedCompletionSet.has(id)) triggerCompletionAlert(id);
+            }
+        }
+    }
+
+    function getUpElapsedSeconds(table) {
+        const up = table.upTimer;
+        if (up.status === 'idle') return 0;
+        const nowServ = getCurrentServerTime();
+        if (up.status === 'running' && up.startTime) return (nowServ - up.startTime) / 1000;
+        if (up.status === 'paused' && up.pausedElapsed !== null) return up.pausedElapsed;
+        return 0;
+    }
+
+    function getDownRemainingSeconds(table) {
+        const down = table.downTimer;
+        const duration = down.duration || 0;
+        if (down.status === 'idle') return duration;
+        let elapsed = 0;
+        const nowServ = getCurrentServerTime();
+        if (down.status === 'running' && down.startTime) {
+            elapsed = (nowServ - down.startTime) / 1000;
+        } else if (down.status === 'paused' && down.pausedElapsed !== null) {
+            elapsed = down.pausedElapsed;
+        }
+        let remain = duration - elapsed;
+        return remain < 0 ? 0 : remain;
+    }
+
+    function formatTime(sec) {
+        if (sec < 0) sec = 0;
+        const h = Math.floor(sec / 3600);
+        const m = Math.floor((sec % 3600) / 60);
+        const s = Math.floor(sec % 60);
+        if (h > 0) return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+        return `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    }
+
+    function getCardBorderStyle(table) {
+        const upRun = table.upTimer?.status === 'running';
+        const downRun = table.downTimer?.status === 'running';
+        if (upRun && downRun) return '#a855f7';
+        if (upRun) return '#f97316';
+        if (downRun) return '#10b981';
+        return '#cbd5e1';
+    }
+    function escapeHtml(str) { return String(str).replace(/[&<>]/g, function(m) { if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+
+    // --- 全局事件 (模式切换、调整等) ---
+    function bindGlobalEvents() {
+        document.body.addEventListener('click', async (e) => {
+            unlockAudio();
+            const target = e.target;
+            if (target.classList.contains('table-name')) {
+                const id = target.dataset.id;
+                if (id && tablesData[id]) await editTableName(id, tablesData[id].name);
+                return;
+            }
+            if (target.classList.contains('delete-table')) {
+                const id = target.dataset.id;
+                if (id) await deleteTable(id);
+                return;
+            }
+            if (target.classList.contains('mode-btn')) {
+                const id = target.dataset.id;
+                const mode = target.dataset.mode;
+                if (id && (mode === 'up' || mode === 'down')) {
+                    tableDisplayMode[id] = mode;
+                    fullRenderTables();  // 切换模式需要重绘UI
+                }
+                return;
+            }
+            if (target.dataset.timer && target.dataset.act) {
+                const id = target.dataset.id;
+                const timer = target.dataset.timer;
+                const act = target.dataset.act;
+                if (timer === 'up') {
+                    if (act === 'start') {
+                        const status = tablesData[id]?.upTimer?.status;
+                        if (status === 'running') await upTimerAction(id, 'pause');
+                        else await upTimerAction(id, 'start');
+                    } else if (act === 'reset') await upTimerAction(id, 'reset');
+                } else if (timer === 'down') {
+                    if (act === 'start') {
+                        const status = tablesData[id]?.downTimer?.status;
+                        if (status === 'running') await downTimerAction(id, 'pause');
+                        else await downTimerAction(id, 'start');
+                    } else if (act === 'reset') await downTimerAction(id, 'reset');
+                }
+                return;
+            }
+            // 调整按钮（-1小时，-1分，+10秒等）
+            if (target.classList.contains('adjust-btn')) {
+                const id = target.dataset.id;
+                const delta = parseInt(target.dataset.delta);
+                if (id && !isNaN(delta)) {
+                    const table = tablesData[id];
+                    if (table) {
+                        let newDur = (table.downTimer?.duration || 0) + delta;
+                        if (newDur < 1) newDur = 1;
+                        await setDuration(id, newDur);
+                    }
+                }
+                return;
+            }
+            // 秒数应用
+            if (target.classList.contains('sec-apply')) {
+                const id = target.dataset.id;
+                const deltaInput = document.getElementById(`deltaSec_${id}`);
+                if (id && deltaInput) {
+                    let deltaVal = parseInt(deltaInput.value) || 0;
+                    const table = tablesData[id];
+                    if (table) {
+                        let newDur = (table.downTimer?.duration || 0) + deltaVal;
+                        if (newDur < 1) newDur = 1;
+                        await setDuration(id, newDur);
+                        deltaInput.value = 0;
+                    }
+                }
+                return;
+            }
+            // 预设时长按钮
+            if (target.classList.contains('preset-btn')) {
+                const id = target.dataset.id;
+                const seconds = parseInt(target.dataset.preset);
+                if (id && !isNaN(seconds)) {
+                    await setDuration(id, seconds);
+                }
+                return;
+            }
+        });
+    }
+
+    // --- 定时刷新显示 (每秒更新数字和警告样式，不修改数据库)---
+    function updateClock() {
+        if (mainPanel.style.display !== 'block') return;
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const timeStr = now.toLocaleTimeString('zh-CN', { hour12: false });
+        liveClockSpan.innerText = `${year}/${month}/${day} ${timeStr}`;
+    }
+    function startTimerRefresh() {
+        if (reRenderTimer) clearInterval(reRenderTimer);
+        updateClock();
+        reRenderTimer = setInterval(() => {
+            if (mainPanel.style.display !== 'block') return;
+            updateClock();
+            for (const [id, table] of Object.entries(tablesData)) {
+                // 更新正计时数字和状态
+                const upDigits = document.getElementById(`upDigits_${id}`);
+                if (upDigits) upDigits.innerText = formatTime(getUpElapsedSeconds(table));
+                const upStatus = document.getElementById(`upStatus_${id}`);
+                if (upStatus) upStatus.innerText = { idle:'未开始', running:'正在计时...', paused:'已暂停' }[table.upTimer?.status] || '';
+                const upStartBtn = document.getElementById(`upStartBtn_${id}`);
+                if (upStartBtn) upStartBtn.innerText = (table.upTimer?.status === 'running') ? '暂停' : '开始';
+                // 倒计时更新
+                const downDigits = document.getElementById(`downDigits_${id}`);
+                const remaining = getDownRemainingSeconds(table);
+                if (downDigits) {
+                    downDigits.innerText = formatTime(remaining);
+                    if (remaining <= 60 && remaining > 0) downDigits.classList.add('warning-red');
+                    else downDigits.classList.remove('warning-red');
+                }
+                const downStatusSpan = document.getElementById(`downStatus_${id}`);
+                if (downStatusSpan) downStatusSpan.innerText = { idle:'未开始', running:'倒计时中...', paused:'已暂停' }[table.downTimer?.status] || '';
+                const downStartBtn = document.getElementById(`downStartBtn_${id}`);
+                if (downStartBtn) downStartBtn.innerText = (table.downTimer?.status === 'running') ? '暂停' : '开始';
+                // 结束背景更新
+                const downSection = document.getElementById(`downSection_${id}`);
+                const isFinished = (table.downTimer?.status === 'paused' && remaining <= 0) || (table.downTimer?.status !== 'idle' && remaining <= 0);
+                if (downSection) {
+                    if (isFinished) downSection.classList.add('countdown-finished');
+                    else downSection.classList.remove('countdown-finished');
+                }
+                // 边框颜色
+                const card = document.querySelector(`.table-card[data-id="${id}"]`);
+                if (card) card.style.borderLeftColor = getCardBorderStyle(table);
+            }
+            checkCountdownCompletion();
+        }, 1000);
+    }
+
+    async function enterRoom() {
+        const apiKey = apiKeyInput.value.trim();
+        let dbUrl = dbUrlInput.value.trim();
+        const roomId = roomIdInput.value.trim();
+        if (!apiKey || !dbUrl || !roomId) { showError("请完整填写所有字段"); return; }
+        configErrorDiv.style.display = 'none';
+        try {
+            await initFirebaseAndRoom(apiKey, dbUrl, roomId);
+            localStorage.setItem('timersystem_config', JSON.stringify({ apiKey, dbUrl, roomId }));
+            configPanel.style.display = 'none';
+            mainPanel.style.display = 'block';
+            startTimerRefresh();
+            requestNotificationPerm();
+        } catch (err) { showConfigError(err.message); }
+    }
+    function loadSavedConfig() {
+        const saved = localStorage.getItem('timersystem_config');
+        if (saved) {
+            try {
+                const { apiKey, dbUrl, roomId } = JSON.parse(saved);
+                apiKeyInput.value = apiKey;
+                dbUrlInput.value = dbUrl;
+                roomIdInput.value = roomId;
+                setTimeout(() => enterRoom(), 200);
+            } catch(e) {}
+        }
+    }
+    enterBtn.onclick = enterRoom;
+    addTableBtn.onclick = () => addNewTable();
+    settingsBackBtn.onclick = async () => {
+        await cleanupFirebase();
+        configPanel.style.display = 'block';
+        mainPanel.style.display = 'none';
+        if (reRenderTimer) clearInterval(reRenderTimer);
+        tablesData = {};
+        tableDisplayMode = {};
+        fullRenderTables();
+    };
+    bindGlobalEvents();
+    loadSavedConfig();
+</script>
+</body>
+</html>
